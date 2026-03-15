@@ -5,10 +5,122 @@ SMODS.Atlas {
     py = 32
 }
 
-SMODS.current_mod.extra_tabs = function() --Credits tab
+local miku_active = true
+local miku_source = nil
+local miku_mod_path = SMODS.current_mod.path
+local miku_volume = 0.6
+local miku_settings = {
+    button_label = "Miku Theme: ON",
+    vol_label = "Volume: 60%"
+}
+
+SMODS.current_mod.extra_tabs = function()
     local scale = 0.5
     return {
-        label = "Interns",
+        {
+            label = "Music",
+            tab_definition_function = function()
+                return {
+                    n = G.UIT.ROOT,
+                    config = { align = "cm", padding = 0.05, colour = G.C.CLEAR },
+                    nodes = {
+                        {
+                            n = G.UIT.R,
+                            config = { align = "cm", padding = 0.1 },
+                            nodes = {
+                                {
+                                    n = G.UIT.T,
+                                    config = {
+                                        ref_table = miku_settings,
+                                        ref_value = "button_label",
+                                        scale = 0.4,
+                                        colour = G.C.WHITE,
+                                        shadow = true
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            n = G.UIT.R,
+                            config = { align = "cm", padding = 0.1 },
+                            nodes = {
+                                {
+                                    n = G.UIT.C,
+                                    config = {
+                                        button = "toggle_miku_music",
+                                        colour = G.C.BLUE,
+                                        minw = 3, minh = 0.6,
+                                        r = 0.1, hover = true
+                                    },
+                                    nodes = {
+                                        {
+                                            n = G.UIT.T,
+                                            config = {
+                                                text = "Toggle",
+                                                scale = 0.35,
+                                                colour = G.C.WHITE
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            n = G.UIT.R,
+                            config = { align = "cm", padding = 0.1 },
+                            nodes = {
+                                {
+                                    n = G.UIT.T,
+                                    config = {
+                                        ref_table = miku_settings,
+                                        ref_value = "vol_label",
+                                        scale = 0.35,
+                                        colour = G.C.WHITE,
+                                        shadow = true
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            n = G.UIT.R,
+                            config = { align = "cm", padding = 0.05 },
+                            nodes = {
+                                {
+                                    n = G.UIT.C,
+                                    config = {
+                                        button = "miku_vol_down",
+                                        colour = G.C.RED,
+                                        minw = 0.7, minh = 0.6,
+                                        r = 0.1, hover = true
+                                    },
+                                    nodes = {
+                                        { n = G.UIT.T, config = { text = "-", scale = 0.5, colour = G.C.WHITE } }
+                                    }
+                                },
+                                {
+                                    n = G.UIT.C,
+                                    config = { minw = 0.2 }
+                                },
+                                {
+                                    n = G.UIT.C,
+                                    config = {
+                                        button = "miku_vol_up",
+                                        colour = G.C.GREEN,
+                                        minw = 0.7, minh = 0.6,
+                                        r = 0.1, hover = true
+                                    },
+                                    nodes = {
+                                        { n = G.UIT.T, config = { text = "+", scale = 0.5, colour = G.C.WHITE } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            end
+        },
+        {
+            label = "Interns",
         tab_definition_function = function()
         return {
             n = G.UIT.ROOT,
@@ -111,7 +223,69 @@ SMODS.current_mod.extra_tabs = function() --Credits tab
             }
         }
         end
+        }
     }
+end
+
+-- theme for the miku
+SMODS.Sound({
+    key = "miku_theme",
+    path = "miku_theme.ogg",
+    streaming = true
+})
+
+local original_music_control = G.FUNCS.music_control
+G.FUNCS.music_control = function()
+    if not miku_active then
+        original_music_control()
+    end
+end
+
+G.FUNCS.toggle_miku_music = function()
+    miku_active = not miku_active
+    miku_settings.button_label = miku_active and "Miku Theme: ON" or "Miku Theme: OFF"
+    if not miku_active and miku_source and miku_source:isPlaying() then
+        miku_source:stop()
+    end
+end
+
+G.FUNCS.miku_vol_up = function()
+    miku_volume = math.min(1.0, miku_volume + 0.1)
+    miku_settings.vol_label = string.format("Volume: %d%%", math.floor(miku_volume * 100 + 0.5))
+    if miku_source then miku_source:setVolume(miku_volume) end
+end
+
+G.FUNCS.miku_vol_down = function()
+    miku_volume = math.max(0.0, miku_volume - 0.1)
+    miku_settings.vol_label = string.format("Volume: %d%%", math.floor(miku_volume * 100 + 0.5))
+    if miku_source then miku_source:setVolume(miku_volume) end
+end
+
+local game_update_ref = Game.update
+function Game:update(dt)
+    game_update_ref(self, dt)
+
+    if not G or not G.SOUND_MANAGER then return end
+
+    if miku_active then
+        if not miku_source then
+            local file = io.open(miku_mod_path .. "assets/sounds/miku_theme.ogg", "rb")
+            if file then
+                local data = file:read("*all")
+                file:close()
+                local fileData = love.filesystem.newFileData(data, "miku_theme.ogg")
+                miku_source = love.audio.newSource(fileData, "stream")
+                miku_source:setLooping(true)
+                miku_source:setVolume(miku_volume)
+                love.audio.stop()
+                miku_source:play()
+            end
+        end
+
+        if miku_source and not miku_source:isPlaying() then
+            miku_source:play()
+        end
+    end
 end
 
 SMODS.Atlas{
@@ -202,7 +376,7 @@ SMODS.Joker{
     loc_txt = {
         name = 'Shiteyanyo',
         text = {
-            'Retriggers all played cards if,',
+            'Retriggers all played cards if',
             'played {C:attention}hand{} is a {C:attention}Two Pair{}',
         }
     },
@@ -283,8 +457,8 @@ SMODS.Joker{
     loc_txt ={
         name = "Gumi's Carrot",
         text = {
-            'For every {C:attention}Ace{},',
-            'played in hand gain {X:mult,C:white}x0.1{} Mult,',
+            'For every {C:attention}Ace{} played in hand,',
+            'gain {X:mult,C:white}x0.1{} Mult',
             '{C:inactive}(Currently {X:mult,C:white}x#1#{C:inactive} Mult)',
         }
     },
@@ -334,7 +508,7 @@ SMODS.Joker{
     loc_txt = {
         name = "Neru's Smartphone",
         text = {
-            'For every face card played',
+            'For every {C:attention}Face{} card played,',
             'gain {X:mult,C:white}x1{} Mult, resets each blind',
             '{C:inactive}(Currently {X:mult,C:white}x#1#{C:inactive} Mult)'
         }
@@ -397,7 +571,7 @@ SMODS.Joker{
     loc_txt = {
         name = 'Jimbo Kaito',
         text = {
-            'Retriggers all played cards if,',
+            'Retriggers all played cards if',
             'played {C:attention}hand{} is a {C:attention}Straight{}',
         }
     },
@@ -434,7 +608,7 @@ SMODS.Joker {
     loc_txt = {
         name = 'Sketchy Ticket',
         text = {
-            'Every hand played earn {C:money}+$2{} when scored,',
+            'For every hand played, earn {C:money}+$2{}',
             '{C:green}#2# in #3#{} chance this',
             'card is destroyed at the end of the round'
         }
@@ -517,9 +691,9 @@ SMODS.Joker {
 SMODS.Joker {
     key = 'VIP_TICKET',
     loc_txt = {
-        name = 'VIP TICKET',
+        name = 'VIP Ticket',
         text = {
-            'Every card scored, earn {C:money}+$3{},',
+            'For every card scored, earn {C:money}+$3{}',
             '{C:green}#2# in #3#{} chance this',
             'card is destroyed at the end of the round'
         }
@@ -603,8 +777,8 @@ SMODS.Joker{
         name = 'Triple Baka',
         text = {
             'This Joker gains {C:chips}+3{} Chips and {C:mult}+3{} Mult,',
-            'when a hand contains a {C:attention}3 of a Kind',
-            '({C:inactive}Currently {C:chips}+#1#{}{C:inactive} Chips and {C:mult}+#2#{}{C:inactive} Mult{})'
+            'when a hand contains a {C:attention}Three of a Kind{}',
+            '{C:inactive}(Currently {C:chips}+#1#{C:inactive} Chips and {C:mult}+#2#{C:inactive} Mult)'
         }
     },
     config = { extra = { chips = 0, mult = 0, chip_gain = 3, mult_gain =3 } },
@@ -719,8 +893,8 @@ SMODS.Joker{
     loc_txt = {
         name = 'Domino Miku',
         text = {
-            '{C:green}#2# in #3#{} to create a {C:purple}Tarot{} card(s),',
-            ' when played {C:attention}hand{} contains a {C:attention}Pair{}',
+            '{C:green}#2# in #3#{} chance to create a {C:purple}Tarot{} card,',
+            'when played {C:attention}hand{} contains a {C:attention}Pair{}',
         }
     },
     config = { extra = { odds = 3 } },
@@ -791,10 +965,10 @@ SMODS.Joker{
     loc_txt = {
         name = 'Rotten Girl',
         text = {
-            'If played hand contains at least,',
-            '2 {C:attention}Face{} cards,{C:inactive}(Queen excluded){}',
-            'gain {C:tarot}The Fool{} and {C:tarot}Judgement{},',
-            '({C:inactive}Must have room){}'
+            'If played hand contains at least',
+            '2 {C:attention}Face{} cards {C:inactive}(Queen excluded){}',
+            'gain {C:tarot}The Fool{} and {C:tarot}Judgement{}',
+            '{C:inactive}(Must have room){}'
         }
     },
     config = { extra = {} },
@@ -906,7 +1080,7 @@ SMODS.Joker{
     loc_txt = {
         name = 'You are{C:red}King{}',
         text = {
-            "{C:Red}Turns every scored card into a {C:red}King{}"
+            "Turns every scored card into a {C:red}King{}"
         },
     },
     atlas = 'Jokers',
