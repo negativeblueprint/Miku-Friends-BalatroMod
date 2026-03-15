@@ -6,6 +6,12 @@ A full-blown Vocaloid mod with original Jokers that are meant to be balanced in 
 
 -Latest Steammodded installation is needed!
 
+-Make sure to turn off the native Balatro Theme
+
+-Miku theme is adjusted in the mods settings
+
+-Credit: [Pichu-P](https://youtu.be/VddKpgteL2U)
+
 Mod features:
 - New Jokers - 15
 - Original Art by Misenrol
